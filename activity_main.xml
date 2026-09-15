@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="24dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LAN Cast Voice" android:textSize="26sp" android:textStyle="bold" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Opus • RTP • UDP multicast" android:paddingTop="6dp" android:paddingBottom="18dp" />
+    <EditText android:id="@+id/group" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Multicast group" android:text="239.1.1.1" android:inputType="text" />
+    <EditText android:id="@+id/port" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="UDP port" android:text="5000" android:inputType="number" />
+    <Button android:id="@+id/start" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Start LAN audio" android:layout_marginTop="16dp" />
+    <Button android:id="@+id/stop" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Stop" android:enabled="false" />
+    <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Stopped" android:paddingTop="20dp" />
+</LinearLayout>
