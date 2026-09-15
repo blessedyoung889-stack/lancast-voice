@@ -24,10 +24,22 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        groupEdit = findViewById(R.id.group); portEdit = findViewById(R.id.port); status = findViewById(R.id.status)
-        findViewById<Button>(R.id.start).setOnClickListener { startAudio() }
-        findViewById<Button>(R.id.stop).setOnClickListener { stopAudio() }
+        try {
+            setContentView(R.layout.activity_main)
+            groupEdit = findViewById(R.id.group) ?: throw IllegalStateException("Missing ID 'group' in layout")
+            portEdit = findViewById(R.id.port) ?: throw IllegalStateException("Missing ID 'port' in layout")
+            status = findViewById(R.id.status) ?: throw IllegalStateException("Missing ID 'status' in layout")
+            
+            findViewById<Button>(R.id.start)?.setOnClickListener { startAudio() } 
+                ?: throw IllegalStateException("Missing ID 'start' in layout")
+            findViewById<Button>(R.id.stop)?.setOnClickListener { stopAudio() } 
+                ?: throw IllegalStateException("Missing ID 'stop' in layout")
+        } catch (e: Exception) {
+            setContentView(TextView(this).apply {
+                text = "Launch Error:\n${e.message}"
+                textSize = 16f
+            })
+        }
     }
 
     private fun startAudio() {
