@@ -1,29 +1,37 @@
-name: Build Android APK
+name: Capture Crash Log
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  debug:
+    runs-on: macos-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
 
-      - name: Build APK
-        run: gradle assembleDebug
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Run emulator, install, launch, capture logcat
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          script: |
+            adb logcat -c
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.example.lancast/.MainActivity
+            sleep 8
+            adb logcat -d > crash-log.txt
+
+      - name: Upload log
         uses: actions/upload-artifact@v4
         with:
-          name: lancast-app
-          path: app/build/outputs/apk/debug/*.apk
-          
+          name: crash-log
+          path: crash-log.txt
