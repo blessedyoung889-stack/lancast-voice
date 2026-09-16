@@ -29,16 +29,23 @@ class MainActivity : Activity() {
             groupEdit = findViewById(R.id.group) ?: throw IllegalStateException("Missing ID 'group' in layout")
             portEdit = findViewById(R.id.port) ?: throw IllegalStateException("Missing ID 'port' in layout")
             status = findViewById(R.id.status) ?: throw IllegalStateException("Missing ID 'status' in layout")
-            
-            findViewById<Button>(R.id.start)?.setOnClickListener { startAudio() } 
+
+            findViewById<Button>(R.id.start)?.setOnClickListener { startAudio() }
                 ?: throw IllegalStateException("Missing ID 'start' in layout")
-            findViewById<Button>(R.id.stop)?.setOnClickListener { stopAudio() } 
+            findViewById<Button>(R.id.stop)?.setOnClickListener { stopAudio() }
                 ?: throw IllegalStateException("Missing ID 'stop' in layout")
         } catch (e: Exception) {
             setContentView(TextView(this).apply {
                 text = "Launch Error:\n${e.message}"
                 textSize = 16f
             })
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 10 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startAudio()
         }
     }
 
@@ -91,13 +98,20 @@ private class LanAudioEngine(private val group: String, private val port: Int, p
     private fun senderLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
         val sampleRate = 48000; val channels = 1; val frameSamples = 960
-        val minBuf = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        val record = AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, max(minBuf, frameSamples * 2 * 4))
-        val codec = MediaCodec.createEncoderByType("audio/opus")
-        codec.configure(MediaFormat.createAudioFormat("audio/opus", sampleRate, channels).apply {
-            setInteger(MediaFormat.KEY_BIT_RATE, 24000); setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, frameSamples * 2); setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
-        }, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-        codec.start()
+        val record: AudioRecord
+        val codec: MediaCodec
+        try {
+            val minBuf = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            record = AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, max(minBuf, frameSamples * 2 * 4))
+            codec = MediaCodec.createEncoderByType("audio/opus")
+            codec.configure(MediaFormat.createAudioFormat("audio/opus", sampleRate, channels).apply {
+                setInteger(MediaFormat.KEY_BIT_RATE, 24000); setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, frameSamples * 2); setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+            }, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            codec.start()
+        } catch (e: Exception) {
+            status("Sender init failed (no Opus encoder?): ${e.message}")
+            return
+        }
         sendSocket = MulticastSocket()
         val address = InetAddress.getByName(group)
         val audio = ShortArray(frameSamples); val pcm = ByteArray(frameSamples * 2); val info = MediaCodec.BufferInfo()
@@ -108,7 +122,7 @@ private class LanAudioEngine(private val group: String, private val port: Int, p
                 if (!running) break
                 val bb = ByteBuffer.wrap(pcm).order(ByteOrder.LITTLE_ENDIAN); for (s in audio) bb.putShort(s)
                 var inIndex = codec.dequeueInputBuffer(5000)
-                if (inIndex >= 0) { val ib = codec.getInputBuffer(inIndex)!!; ib.clear(); ib.put(pcm); codec.queueInputBuffer(inIndex, 0, pcm.size, timestamp.toLong(), 0) }
+                if (inIndex >= 0) { val ib = codec.getInputBuffer(inIndex)!!; ib.clear(); ib.put(pcm); codec.queueInputBuffer(inIndex, 0, pcm.size, (timestamp.toLong() * 1_000_000L) / sampleRate, 0) }
                 timestamp += frameSamples
                 var out = codec.dequeueOutputBuffer(info, 0)
                 while (out >= 0) {
